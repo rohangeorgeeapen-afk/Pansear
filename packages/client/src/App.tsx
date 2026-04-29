@@ -1,8 +1,8 @@
 import { Routes, Route, NavLink, Navigate } from "react-router-dom";
 import { StationView } from "./pages/StationView";
-import { ExpeditorView } from "./pages/ExpeditorView";
 import { NewOrderForm } from "./pages/NewOrderForm";
 import { Overview } from "./pages/Overview";
+import { ActiveOrdersPanel } from "./ActiveOrdersPanel";
 import { useEffect, useState } from "react";
 import { useQueueState } from "./ws";
 
@@ -51,7 +51,6 @@ export function App() {
           <NavLink to="/overview" className={navLinkClass}>
             Overview <PendingBadge count={totalPending} />
           </NavLink>
-          <NavLink to="/expo" className={navLinkClass}>Expediter</NavLink>
           <NavLink to="/station/1" className={navLinkClass}>
             Grill Station <PendingBadge count={pendingFor(1)} />
           </NavLink>
@@ -65,15 +64,19 @@ export function App() {
         </nav>
       </header>
 
-      <main className="pan-main">
-        <Routes>
-          <Route path="/" element={<Navigate to="/overview" replace />} />
-          <Route path="/overview" element={<Overview />} />
-          <Route path="/new-order" element={<NewOrderForm />} />
-          <Route path="/expo" element={<ExpeditorView />} />
-          <Route path="/station/:id" element={<StationView />} />
-        </Routes>
-      </main>
+      <div className="pan-workspace">
+        <ActiveOrdersPanel state={queueState} />
+
+        <main className="pan-main">
+          <Routes>
+            <Route path="/" element={<Navigate to="/overview" replace />} />
+            <Route path="/overview" element={<Overview />} />
+            <Route path="/new-order" element={<NewOrderForm />} />
+            <Route path="/expo" element={<Navigate to="/overview" replace />} />
+            <Route path="/station/:id" element={<StationView />} />
+          </Routes>
+        </main>
+      </div>
 
       <footer className="pan-statusbar">
         <div className="left">
