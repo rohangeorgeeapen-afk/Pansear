@@ -6,6 +6,7 @@ import type {
   StationQueue,
   CookNextItem,
 } from "@restaurant/shared";
+import { projectTasks } from "./projection.js";
 
 export interface SchedulerInput {
   now: Date;
@@ -15,58 +16,69 @@ export interface SchedulerInput {
   tasks: CookTask[];
 }
 
-interface PendingRow {
-  task: CookTask;
-  station_id: number;
-  slack: number;
-  placed_at_ms: number;
-}
-
 export function schedule(input: SchedulerInput): StationQueue[] {
   const dishById = new Map(input.dishes.map(d => [d.id, d]));
   const orderById = new Map(input.orders.map(o => [o.id, o]));
+  const projection = projectTasks(input);
   const nowMs = input.now.getTime();
 
-  const pendingByStation = new Map<number, PendingRow[]>();
-  const inProgressByStation = new Map<number, number[]>();
-
-  for (const t of input.tasks) {
-    if (t.status !== "pending" && t.status !== "in_progress") continue;
+  // Naive slack — used for *priority* (EDF). Predictive slack is shown to the
+  // chef but priority ordering must follow naive slack, otherwise items that
+  // would be late if delayed could lose their start slot to "less urgent looking"
+  // items that already finished projecting late.
+  const naiveSlack = (t: CookTask): number => {
     const dish = dishById.get(t.dish_id);
     const order = orderById.get(t.order_id);
-    if (!dish || !order) continue;
-
-    if (t.status === "in_progress") {
-      const arr = inProgressByStation.get(dish.station_id) ?? [];
-      arr.push(t.id);
-      inProgressByStation.set(dish.station_id, arr);
-      continue;
-    }
-
-    const placedMs = new Date(order.placed_at).getTime();
-    const deadlineMs = placedMs + order.promise_time_minutes * 60_000;
-    const slackMs = deadlineMs - nowMs - dish.cook_time_minutes * 60_000;
-    const slack = slackMs / 60_000;
-
-    const arr = pendingByStation.get(dish.station_id) ?? [];
-    arr.push({ task: t, station_id: dish.station_id, slack, placed_at_ms: placedMs });
-    pendingByStation.set(dish.station_id, arr);
-  }
+    if (!dish || !order) return 0;
+    const placed = new Date(order.placed_at).getTime();
+    const deadline = placed + order.promise_time_minutes * 60_000;
+    return deadline - nowMs - dish.cook_time_minutes * 60_000;
+  };
 
   return input.stations.map(s => {
-    const inProg = (inProgressByStation.get(s.id) ?? []).slice().sort((a, b) => a - b);
-    const pending = (pendingByStation.get(s.id) ?? []).slice().sort((a, b) => {
-      if (a.slack !== b.slack) return a.slack - b.slack;
-      if (a.placed_at_ms !== b.placed_at_ms) return a.placed_at_ms - b.placed_at_ms;
-      return a.task.id - b.task.id;
+    const inProgress: number[] = [];
+    const pending: CookTask[] = [];
+
+    for (const t of input.tasks) {
+      if (t.status !== "pending" && t.status !== "in_progress") continue;
+      const dish = dishById.get(t.dish_id);
+      if (!dish || dish.station_id !== s.id) continue;
+      if (t.status === "in_progress") inProgress.push(t.id);
+      else pending.push(t);
+    }
+    inProgress.sort((a, b) => a - b);
+
+    pending.sort((a, b) => {
+      const sa = naiveSlack(a);
+      const sb = naiveSlack(b);
+      if (sa !== sb) return sa - sb;
+      const orderA = orderById.get(a.order_id);
+      const orderB = orderById.get(b.order_id);
+      const pa = orderA ? new Date(orderA.placed_at).getTime() : 0;
+      const pb = orderB ? new Date(orderB.placed_at).getTime() : 0;
+      if (pa !== pb) return pa - pb;
+      return a.id - b.id;
     });
+
     const slots = s.unlimited
       ? pending.length
-      : Math.max(0, s.capacity - inProg.length);
-    const cook_next: CookNextItem[] = pending.slice(0, slots).map(p => ({
-      task_id: p.task.id,
-      slack_minutes: p.slack,
-    }));
-    return { station_id: s.id, cook_next, in_progress: inProg, pending_count: pending.length };
+      : Math.max(0, s.capacity - inProgress.length);
+
+    const cook_next: CookNextItem[] = pending.slice(0, slots).map(t => {
+      const p = projection.get(t.id);
+      // Display predictive slack so the chef sees realistic urgency given the
+      // queue depth — not the naive "as if I could start everything now" value.
+      return {
+        task_id: t.id,
+        slack_minutes: p ? p.slack_ms / 60_000 : naiveSlack(t) / 60_000,
+      };
+    });
+
+    return {
+      station_id: s.id,
+      cook_next,
+      in_progress: inProgress,
+      pending_count: pending.length,
+    };
   });
 }

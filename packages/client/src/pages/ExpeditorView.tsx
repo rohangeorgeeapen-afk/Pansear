@@ -34,6 +34,11 @@ function fmtMMSS(totalSec: number) {
   return `${sign}${mm}:${ss}`;
 }
 
+function fmtMin(min: number): string {
+  if (min < 1) return "<1m";
+  return `${Math.ceil(min)}m`;
+}
+
 export function ExpeditorView() {
   const state = useQueueState();
   const [dishes, setDishes] = useState<Dish[]>([]);
@@ -59,6 +64,24 @@ export function ExpeditorView() {
   const stationById = new Map(stations.map(s => [s.id, s]));
   const now = Date.now();
 
+  // Surface predictive delivery time per ticket: take the latest projected
+  // finish across the order's still-active tasks. If any is past the promise,
+  // the ticket reads as "projected late".
+  const summarizeOrder = (tasks: typeof state.orders[number]["tasks"]) => {
+    let maxProj: number | undefined;
+    let anyLate = false;
+    for (const t of tasks) {
+      if (t.status === "done" || t.status === "cancelled") continue;
+      if (typeof t.projected_minutes_from_now === "number") {
+        if (maxProj === undefined || t.projected_minutes_from_now > maxProj) {
+          maxProj = t.projected_minutes_from_now;
+        }
+      }
+      if (t.projected_late) anyLate = true;
+    }
+    return { maxProj, anyLate };
+  };
+
   return (
     <>
       <header className="pan-page-header">
@@ -71,6 +94,8 @@ export function ExpeditorView() {
         const elapsedMin = elapsedSec / 60;
         const remainingSec = order.promise_time_minutes * 60 - elapsedSec;
         const cls = elapsedClass(elapsedMin, order.promise_time_minutes);
+        const { maxProj, anyLate } = summarizeOrder(tasks);
+        const etaCls = anyLate ? "is-late" : "";
         return (
           <Card key={order.id} className="pan-card pan-ticket">
             <div className="pan-ticket-head">
@@ -78,6 +103,11 @@ export function ExpeditorView() {
               <div className="pan-ticket-meta">
                 <span>placed {new Date(order.placed_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
                 <span>promise {order.promise_time_minutes}m</span>
+                {typeof maxProj === "number" && (
+                  <span className={"pan-ticket-eta " + etaCls} title="Projected delivery based on current queue">
+                    ETA {fmtMin(maxProj)}{anyLate ? " (late)" : ""}
+                  </span>
+                )}
                 <span className={"pan-ticket-elapsed " + cls}>
                   {cls === "is-late" ? "late " : ""}{fmtMMSS(remainingSec)}
                 </span>
@@ -88,15 +118,21 @@ export function ExpeditorView() {
               {tasks.map(t => {
                 const dish = dishById.get(t.dish_id);
                 const station = dish ? stationById.get(dish.station_id) : undefined;
+                const taskEtaCls = t.projected_late ? "is-late" : "";
                 return (
                   <div key={t.id} className="pan-ticket-row">
                     <div>
                       <div className="dish">{dish?.name ?? `dish ${t.dish_id}`}</div>
                       <div className="station">{station?.name ?? "—"}</div>
                     </div>
-                    <Tag intent={STATUS_INTENT[t.status]} minimal={t.status === "pending"}>
-                      {t.status.replace("_", " ")}
-                    </Tag>
+                    <div className="pan-ticket-row-right">
+                      {typeof t.projected_minutes_from_now === "number" && t.status !== "done" && t.status !== "cancelled" && (
+                        <span className={"pan-task-eta " + taskEtaCls}>{fmtMin(t.projected_minutes_from_now)}</span>
+                      )}
+                      <Tag intent={STATUS_INTENT[t.status]} minimal={t.status === "pending"}>
+                        {t.status.replace("_", " ")}
+                      </Tag>
+                    </div>
                   </div>
                 );
               })}

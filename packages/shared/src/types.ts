@@ -42,9 +42,18 @@ export interface StationQueue {
   pending_count: number;
 }
 
+export interface ActiveOrderTask extends CookTask {
+  dish_name: string;
+  station_id: number;
+  /** Projected minutes from now until this task finishes. Absent if the task is done/cancelled. */
+  projected_minutes_from_now?: number;
+  /** True if this task's projected finish exceeds the order's promise time. */
+  projected_late?: boolean;
+}
+
 export interface ActiveOrderView {
   order: Order;
-  tasks: Array<CookTask & { dish_name: string; station_id: number }>;
+  tasks: ActiveOrderTask[];
 }
 
 export interface QueueUpdateMessage {

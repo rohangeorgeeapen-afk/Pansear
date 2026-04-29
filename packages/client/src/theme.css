@@ -278,6 +278,41 @@ a:hover { color: #ff0000; }
   font-size: 11px;
   border-bottom: 1px solid #e0e0e0;
 }
+.pan-ticket-row-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.pan-task-eta {
+  font-family: "Courier New", Courier, monospace;
+  font-size: 11px;
+  padding: 1px 6px;
+  background: #ffffff;
+  color: var(--pan-fg);
+  border: 1px solid var(--pan-border-dark);
+  min-width: 32px;
+  text-align: center;
+}
+.pan-task-eta.is-late {
+  background: #ffd0d0;
+  color: var(--pan-danger);
+  font-weight: bold;
+  border-color: var(--pan-danger);
+}
+.pan-ticket-eta {
+  font-family: "Courier New", Courier, monospace;
+  font-size: 11px;
+  padding: 1px 6px;
+  background: #ffffff;
+  color: var(--pan-fg);
+  border: 1px solid var(--pan-border-dark);
+}
+.pan-ticket-eta.is-late {
+  background: var(--pan-danger);
+  color: #ffffff;
+  font-weight: bold;
+  border-color: #660000;
+}
 .pan-ticket-row:nth-child(even) { background: var(--pan-bg-stripe); }
 .pan-ticket-row .dish { color: var(--pan-fg); }
 .pan-ticket-row .station {
@@ -462,6 +497,38 @@ a:hover { color: #ff0000; }
   min-height: 20px !important;
 }
 
+/* NumericInput: keep the stepper flush to the input, small, no big drop shadow */
+.bp5-numeric-input { display: inline-flex !important; }
+.bp5-numeric-input .bp5-input-group { flex: 1; }
+.bp5-numeric-input .bp5-input-group .bp5-input { border-right: none !important; }
+.bp5-numeric-input .bp5-button-group { margin-left: 0 !important; }
+.bp5-numeric-input .bp5-button-group.bp5-vertical > .bp5-button {
+  min-height: 11px !important;
+  height: 11px !important;
+  padding: 0 4px !important;
+  border: 1px solid var(--pan-border) !important;
+  border-left-color: var(--pan-border-light) !important;
+  border-top-color: var(--pan-border-light) !important;
+  border-right-color: var(--pan-border-dark) !important;
+  border-bottom-color: var(--pan-border-dark) !important;
+  background: linear-gradient(180deg, #ffffff, #d4d0c8) !important;
+  background-image: linear-gradient(180deg, #ffffff, #d4d0c8) !important;
+  box-shadow: none !important;
+}
+.bp5-numeric-input .bp5-button-group.bp5-vertical > .bp5-button:first-child {
+  border-bottom-width: 0 !important;
+}
+.bp5-numeric-input .bp5-button-group.bp5-vertical > .bp5-button:active {
+  border-top-color: var(--pan-border-dark) !important;
+  border-left-color: var(--pan-border-dark) !important;
+  border-right-color: var(--pan-border-light) !important;
+  border-bottom-color: var(--pan-border-light) !important;
+}
+.bp5-numeric-input .bp5-button-group.bp5-vertical > .bp5-button .bp5-icon {
+  font-size: 10px !important;
+  color: var(--pan-fg) !important;
+}
+
 /* Checkboxes — keep simple and old-school */
 .bp5-dark .bp5-control,
 .bp5-control { color: var(--pan-fg) !important; font-size: 11px !important; font-family: Verdana, sans-serif !important; }
@@ -631,12 +698,14 @@ a:hover { color: #ff0000; }
 .pan-capacity-bar {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   padding: 8px 12px;
   margin-bottom: 12px;
   background: var(--pan-bg-stripe);
   border: 1px solid var(--pan-border);
 }
+.pan-capacity-bar .bp5-numeric-input { height: 22px; }
+.pan-capacity-bar .bp5-input { min-height: 22px !important; height: 22px !important; }
 .pan-link-btn {
   background: none;
   border: none;
@@ -647,6 +716,71 @@ a:hover { color: #ff0000; }
   font-size: 11px;
 }
 .pan-link-btn:hover { color: #ff0000; }
+
+/* ── Feasibility dialog (2000s message-box style) ───────────────────────── */
+
+.bp5-dialog {
+  background: var(--pan-bg) !important;
+  border: 2px solid var(--pan-border) !important;
+  border-top-color: var(--pan-border-light) !important;
+  border-left-color: var(--pan-border-light) !important;
+  border-right-color: var(--pan-border-dark) !important;
+  border-bottom-color: var(--pan-border-dark) !important;
+  border-radius: 0 !important;
+  box-shadow: 4px 4px 0 rgba(0,0,0,0.2) !important;
+  padding: 0 !important;
+  font-family: Verdana, sans-serif !important;
+}
+.bp5-dialog-header {
+  background: linear-gradient(180deg, #4a6c99, #003366) !important;
+  color: #ffffff !important;
+  padding: 4px 8px !important;
+  border-radius: 0 !important;
+  border-bottom: 1px solid #000000 !important;
+  box-shadow: none !important;
+  min-height: 0 !important;
+}
+.bp5-dialog-header .bp5-heading {
+  color: #ffffff !important;
+  font-size: 12px !important;
+  font-weight: bold !important;
+  font-family: Verdana, sans-serif !important;
+}
+.bp5-dialog-header .bp5-icon { color: #ffff99 !important; }
+.bp5-dialog-body {
+  background: var(--pan-bg-page) !important;
+  margin: 0 !important;
+  padding: 16px !important;
+  font-size: 11px !important;
+  color: var(--pan-fg) !important;
+}
+
+.pan-feasibility p { margin: 0 0 12px; line-height: 1.5; }
+.pan-feasibility-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 14px;
+  font-size: 11px;
+}
+.pan-feasibility-table th {
+  background: var(--pan-bg-stripe);
+  text-align: left;
+  padding: 4px 8px;
+  border: 1px solid var(--pan-border);
+  font-weight: bold;
+}
+.pan-feasibility-table td {
+  padding: 4px 8px;
+  border: 1px solid var(--pan-border);
+}
+.pan-feasibility-table tr:nth-child(even) td { background: var(--pan-bg-stripe); }
+.pan-feasibility-table .is-late { color: var(--pan-danger); font-weight: bold; }
+.pan-feasibility-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
 
 /* ── Kitchen Overview dashboard ─────────────────────────────────────────── */
 

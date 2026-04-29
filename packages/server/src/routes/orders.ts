@@ -1,17 +1,55 @@
 import { Router } from "express";
 import { pool } from "../db.js";
 import { broadcastQueueUpdate } from "../ws.js";
+import { checkFeasibility } from "../feasibility.js";
+import { loadStations, loadDishes, loadActiveOrders, loadActiveTasks } from "../state.js";
 
 export const ordersRouter = Router();
 
 ordersRouter.post("/orders", async (req, res) => {
-  const { promise_time_minutes, items } = req.body as {
+  const { promise_time_minutes, items, force } = req.body as {
     promise_time_minutes?: number;
     items?: number[];
+    force?: boolean;
   };
-  if (!promise_time_minutes || !Array.isArray(items) || items.length === 0) {
-    return res.status(400).json({ error: "promise_time_minutes and items[] required" });
+  if (!Number.isFinite(promise_time_minutes) || (promise_time_minutes as number) < 1) {
+    return res.status(400).json({ error: "promise_time_minutes must be a positive number" });
   }
+  if (!Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ error: "items[] is required" });
+  }
+  if (!items.every(i => Number.isInteger(i) && i > 0)) {
+    return res.status(400).json({ error: "items must be a list of dish ids" });
+  }
+
+  // Feasibility check unless explicitly overridden.
+  if (!force) {
+    const [stations, dishes, orders, tasks] = await Promise.all([
+      loadStations(),
+      loadDishes(),
+      loadActiveOrders(),
+      loadActiveTasks(),
+    ]);
+    const result = checkFeasibility({
+      now: new Date(),
+      promise_time_minutes: promise_time_minutes as number,
+      items,
+      stations,
+      dishes,
+      orders,
+      tasks,
+    });
+    if (!result.feasible) {
+      return res.status(409).json({
+        error: "infeasible_promise",
+        message: "Order can't be delivered within the requested promise time given the current queue.",
+        promise_time_minutes,
+        suggested_minimum_minutes: result.suggested_minimum_minutes,
+        late_items: result.late_items,
+      });
+    }
+  }
+
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
@@ -27,7 +65,7 @@ ordersRouter.post("/orders", async (req, res) => {
       );
     }
     await client.query("COMMIT");
-    res.status(201).json({ order_id: orderId });
+    res.status(201).json({ order_id: orderId, forced: !!force });
   } catch (err) {
     await client.query("ROLLBACK");
     throw err;

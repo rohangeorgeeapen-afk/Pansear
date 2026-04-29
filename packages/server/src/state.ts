@@ -1,7 +1,8 @@
 import { pool } from "./db.js";
 import { schedule } from "./scheduler.js";
+import { projectTasks } from "./projection.js";
 import type {
-  Station, Dish, Order, CookTask, StationQueue, ActiveOrderView,
+  Station, Dish, Order, CookTask, StationQueue, ActiveOrderView, ActiveOrderTask,
 } from "@restaurant/shared";
 
 export async function loadStations(): Promise<Station[]> {
@@ -37,33 +38,53 @@ export async function loadActiveTasks(): Promise<CookTask[]> {
   return r.rows;
 }
 
-export async function loadActiveOrdersView(): Promise<ActiveOrderView[]> {
-  const orders = await loadActiveOrders();
-  if (orders.length === 0) return [];
-  const ids = orders.map(o => o.id);
-  const r = await pool.query<CookTask & { dish_name: string; station_id: number }>(
+interface OrderTaskRow extends CookTask {
+  dish_name: string;
+  station_id: number;
+}
+
+async function loadActiveOrderTasks(orderIds: number[]): Promise<OrderTaskRow[]> {
+  if (orderIds.length === 0) return [];
+  const r = await pool.query<OrderTaskRow>(
     `SELECT ct.id, ct.order_id, ct.dish_id, ct.status, ct.started_at, ct.ended_at,
             d.name AS dish_name, d.station_id
      FROM cook_tasks ct
      JOIN dishes d ON d.id = ct.dish_id
      WHERE ct.order_id = ANY($1::int[])
      ORDER BY ct.id`,
-    [ids]
+    [orderIds]
   );
-  return orders.map(order => ({
-    order,
-    tasks: r.rows.filter(t => t.order_id === order.id),
-  }));
+  return r.rows;
 }
 
 export async function computeQueues(): Promise<{ queues: StationQueue[]; orders: ActiveOrderView[] }> {
-  const [stations, dishes, orders, tasks, ordersView] = await Promise.all([
+  const now = new Date();
+  const [stations, dishes, orders, tasks] = await Promise.all([
     loadStations(),
     loadDishes(),
     loadActiveOrders(),
     loadActiveTasks(),
-    loadActiveOrdersView(),
   ]);
-  const queues = schedule({ now: new Date(), stations, dishes, orders, tasks });
+  const orderTaskRows = await loadActiveOrderTasks(orders.map(o => o.id));
+
+  const queues = schedule({ now, stations, dishes, orders, tasks });
+  const projection = projectTasks({ now, stations, dishes, orders, tasks });
+  const nowMs = now.getTime();
+
+  const ordersView: ActiveOrderView[] = orders.map(order => {
+    const deadline = new Date(order.placed_at).getTime() + order.promise_time_minutes * 60_000;
+    const taskRows = orderTaskRows.filter(t => t.order_id === order.id);
+    const enriched: ActiveOrderTask[] = taskRows.map(row => {
+      const proj = projection.get(row.id);
+      if (!proj) return { ...row };
+      return {
+        ...row,
+        projected_minutes_from_now: Math.max(0, (proj.finish_ms - nowMs) / 60_000),
+        projected_late: proj.finish_ms > deadline,
+      };
+    });
+    return { order, tasks: enriched };
+  });
+
   return { queues, orders: ordersView };
 }
