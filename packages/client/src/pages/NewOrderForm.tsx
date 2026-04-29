@@ -49,7 +49,7 @@ export function NewOrderForm() {
       const result = await createOrder(promiseToUse, items, { force });
       if (result.ok) {
         setWarning(null);
-        nav("/expo");
+        nav("/overview");
         return;
       }
       // Server flagged the order as infeasible.
@@ -104,14 +104,16 @@ export function NewOrderForm() {
           </div>
         </FormGroup>
 
-        <Button
-          intent="primary"
-          icon="confirm"
-          text={`Send to line — ${totalItems} item${totalItems === 1 ? "" : "s"}`}
-          disabled={totalItems === 0 || submitting}
-          loading={submitting}
-          onClick={onSubmitClick}
-        />
+        <div className="pan-form-actions">
+          <Button
+            intent="primary"
+            icon="confirm"
+            text={`Send to line — ${totalItems} item${totalItems === 1 ? "" : "s"}`}
+            disabled={totalItems === 0 || submitting}
+            loading={submitting}
+            onClick={onSubmitClick}
+          />
+        </div>
       </Card>
 
       <Dialog

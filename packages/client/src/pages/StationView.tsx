@@ -93,7 +93,7 @@ export function StationView() {
           />
           <Button intent="primary" text="Save" disabled={!capacityDirty || savingCapacity} loading={savingCapacity} onClick={saveCapacity} />
           {capacityDirty && <Button text="Cancel" onClick={() => setCapacityDraft(null)} disabled={savingCapacity} />}
-          <span style={{ marginLeft: "auto", fontSize: 10, color: "var(--pan-fg-muted)", fontStyle: "italic" }}>
+          <span className="pan-capacity-help">
             Lowering below current cooking count blocks new starts until the line drains.
           </span>
         </div>
