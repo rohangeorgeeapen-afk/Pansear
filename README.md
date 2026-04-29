@@ -2,7 +2,6 @@
   <img src="packages/client/public/pansearlogo.png" alt="Pansear" width="360" />
 </p>
 
-<h1 align="center">Pansear</h1>
 
 <p align="center">
   A 2000s-style kitchen operations system for routing orders, prioritizing station work, and keeping the line moving.
