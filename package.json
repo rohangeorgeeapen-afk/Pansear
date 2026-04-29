@@ -1,0 +1,21 @@
+{
+  "name": "restaurant-thing",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "packages/shared",
+    "packages/server",
+    "packages/client"
+  ],
+  "scripts": {
+    "dev": "npm-run-all -p dev:server dev:client",
+    "dev:server": "npm run dev -w packages/server",
+    "dev:client": "npm run dev -w packages/client",
+    "migrate": "npm run migrate -w packages/server",
+    "test": "npm test -w packages/server",
+    "simulate": "npm run simulate -w packages/server"
+  },
+  "devDependencies": {
+    "npm-run-all": "^4.1.5"
+  }
+}

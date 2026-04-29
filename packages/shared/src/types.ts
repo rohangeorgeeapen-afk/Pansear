@@ -1,0 +1,56 @@
+export type TaskStatus = "pending" | "in_progress" | "done" | "cancelled";
+
+export interface Station {
+  id: number;
+  name: string;
+  capacity: number;
+}
+
+export interface Dish {
+  id: number;
+  name: string;
+  station_id: number;
+  cook_time_minutes: number;
+}
+
+export interface Order {
+  id: number;
+  placed_at: string;
+  promise_time_minutes: number;
+  cancelled_at?: string | null;
+}
+
+export interface CookTask {
+  id: number;
+  order_id: number;
+  dish_id: number;
+  status: TaskStatus;
+  started_at?: string | null;
+  ended_at?: string | null;
+}
+
+export interface CookNextItem {
+  task_id: number;
+  slack_minutes: number;
+}
+
+export interface StationQueue {
+  station_id: number;
+  cook_next: CookNextItem[];
+  in_progress: number[];
+}
+
+export interface ActiveOrderView {
+  order: Order;
+  tasks: Array<CookTask & { dish_name: string; station_id: number }>;
+}
+
+export interface QueueUpdateMessage {
+  type: "queue_update";
+  payload: {
+    queues: StationQueue[];
+    orders: ActiveOrderView[];
+  };
+}
+
+export type ServerToClientMessage = QueueUpdateMessage;
