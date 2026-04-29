@@ -38,6 +38,7 @@ export interface StationQueue {
   station_id: number;
   cook_next: CookNextItem[];
   in_progress: number[];
+  pending_count: number;
 }
 
 export interface ActiveOrderView {

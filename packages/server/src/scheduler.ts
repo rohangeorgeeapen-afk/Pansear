@@ -65,6 +65,6 @@ export function schedule(input: SchedulerInput): StationQueue[] {
       task_id: p.task.id,
       slack_minutes: p.slack,
     }));
-    return { station_id: s.id, cook_next, in_progress: inProg };
+    return { station_id: s.id, cook_next, in_progress: inProg, pending_count: pending.length };
   });
 }

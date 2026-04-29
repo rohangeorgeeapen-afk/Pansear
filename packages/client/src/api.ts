@@ -29,3 +29,13 @@ export async function cancelOrder(id: number): Promise<void> {
   const r = await fetch(`/orders/${id}/cancel`, { method: "POST" });
   if (!r.ok) throw new Error("cancel failed");
 }
+
+export async function updateStationCapacity(id: number, capacity: number): Promise<Station> {
+  const r = await fetch(`/stations/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ capacity }),
+  });
+  if (!r.ok) throw new Error("capacity update failed");
+  return r.json();
+}

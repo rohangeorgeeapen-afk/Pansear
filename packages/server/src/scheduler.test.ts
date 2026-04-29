@@ -183,6 +183,22 @@ describe("schedule()", () => {
     expect(grill.in_progress).toEqual([]);
   });
 
+  it("pending_count reflects all pending tasks at a station, not just shown ones", () => {
+    // grill cap 2; one in_progress + three pending => cook_next shows 1, pending_count = 3
+    const out = schedule(baseInput({
+      orders: [mkOrder(1, 0, 30), mkOrder(2, 0, 25), mkOrder(3, 0, 20), mkOrder(4, 0, 15)],
+      tasks: [
+        mkTask(400, 1, 10, "in_progress"),
+        mkTask(401, 2, 10),
+        mkTask(402, 3, 10),
+        mkTask(403, 4, 10),
+      ],
+    }));
+    const grill = findQ(out, 1);
+    expect(grill.pending_count).toBe(3);
+    expect(grill.cook_next).toHaveLength(1);
+  });
+
   it("is deterministic across repeated calls", () => {
     const input = baseInput({
       orders: [mkOrder(1, 2, 25), mkOrder(2, 2, 25), mkOrder(3, 0, 20)],

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { Card, H2, HTMLTable, Tag, Button, NonIdealState, Intent } from "@blueprintjs/core";
-import type { Dish, TaskStatus } from "@restaurant/shared";
+import { Card, Tag, Button, NonIdealState, Intent } from "@blueprintjs/core";
+import type { Dish, Station, TaskStatus } from "@restaurant/shared";
 import { useQueueState } from "../ws";
 import { fetchMeta, cancelOrder } from "../api";
 
@@ -11,42 +11,99 @@ const STATUS_INTENT: Record<TaskStatus, Intent> = {
   cancelled: "danger",
 };
 
+function useTick(intervalMs = 1000) {
+  const [, set] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => set(n => n + 1), intervalMs);
+    return () => clearInterval(id);
+  }, [intervalMs]);
+}
+
+function elapsedClass(elapsedMin: number, promiseMin: number) {
+  const ratio = elapsedMin / Math.max(1, promiseMin);
+  if (ratio >= 1) return "is-late";
+  if (ratio >= 0.66) return "is-warn";
+  return "";
+}
+
+function fmtMMSS(totalSec: number) {
+  const sign = totalSec < 0 ? "-" : "";
+  const s = Math.abs(Math.floor(totalSec));
+  const mm = String(Math.floor(s / 60)).padStart(2, "0");
+  const ss = String(s % 60).padStart(2, "0");
+  return `${sign}${mm}:${ss}`;
+}
+
 export function ExpeditorView() {
   const state = useQueueState();
   const [dishes, setDishes] = useState<Dish[]>([]);
+  const [stations, setStations] = useState<Station[]>([]);
+  useTick(1000);
 
-  useEffect(() => { fetchMeta().then(m => setDishes(m.dishes)).catch(console.error); }, []);
+  useEffect(() => { fetchMeta().then(m => { setDishes(m.dishes); setStations(m.stations); }).catch(console.error); }, []);
 
-  if (!state) return <NonIdealState icon="time" title="Connecting..." />;
-  if (state.orders.length === 0) return <NonIdealState icon="clean" title="No active orders" />;
+  if (!state) return <NonIdealState icon="time" title="Connecting..." description="Please wait while the kitchen feed loads." />;
+  if (state.orders.length === 0) {
+    return (
+      <>
+        <header className="pan-page-header">
+          <h1 className="pan-page-title">Active Orders</h1>
+          <span className="pan-page-sub">0 orders in flight</span>
+        </header>
+        <NonIdealState icon="clean" title="The pass is clear" description="There are no active orders at this time." />
+      </>
+    );
+  }
 
   const dishById = new Map(dishes.map(d => [d.id, d]));
+  const stationById = new Map(stations.map(s => [s.id, s]));
+  const now = Date.now();
 
   return (
-    <div>
-      <H2>Active Orders</H2>
-      {state.orders.map(({ order, tasks }) => (
-        <Card key={order.id} style={{ marginBottom: 12 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div>
-              <strong>Order #{order.id}</strong>{" "}
-              <small>placed {new Date(order.placed_at).toLocaleTimeString()} · promise {order.promise_time_minutes}m</small>
+    <>
+      <header className="pan-page-header">
+        <h1 className="pan-page-title">Active Orders</h1>
+        <span className="pan-page-sub">{state.orders.length} order{state.orders.length === 1 ? "" : "s"} in flight</span>
+      </header>
+      {state.orders.map(({ order, tasks }) => {
+        const placed = new Date(order.placed_at).getTime();
+        const elapsedSec = (now - placed) / 1000;
+        const elapsedMin = elapsedSec / 60;
+        const remainingSec = order.promise_time_minutes * 60 - elapsedSec;
+        const cls = elapsedClass(elapsedMin, order.promise_time_minutes);
+        return (
+          <Card key={order.id} className="pan-card pan-ticket">
+            <div className="pan-ticket-head">
+              <div className="pan-ticket-id"><span className="hash">#</span>{String(order.id).padStart(4, "0")}</div>
+              <div className="pan-ticket-meta">
+                <span>placed {new Date(order.placed_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                <span>promise {order.promise_time_minutes}m</span>
+                <span className={"pan-ticket-elapsed " + cls}>
+                  {cls === "is-late" ? "late " : ""}{fmtMMSS(remainingSec)}
+                </span>
+                <Button minimal small intent="danger" icon="cross" onClick={() => cancelOrder(order.id)} />
+              </div>
             </div>
-            <Button intent="danger" icon="cross" text="Cancel" onClick={() => cancelOrder(order.id)} />
-          </div>
-          <HTMLTable compact style={{ width: "100%", marginTop: 8 }}>
-            <thead><tr><th>Dish</th><th>Status</th></tr></thead>
-            <tbody>
-              {tasks.map(t => (
-                <tr key={t.id}>
-                  <td>{dishById.get(t.dish_id)?.name ?? `dish ${t.dish_id}`}</td>
-                  <td><Tag intent={STATUS_INTENT[t.status]}>{t.status}</Tag></td>
-                </tr>
-              ))}
-            </tbody>
-          </HTMLTable>
-        </Card>
-      ))}
-    </div>
+            <div className="pan-ticket-rows">
+              {tasks.map(t => {
+                const dish = dishById.get(t.dish_id);
+                const station = dish ? stationById.get(dish.station_id) : undefined;
+                return (
+                  <div key={t.id} className="pan-ticket-row">
+                    <div>
+                      <div className="dish">{dish?.name ?? `dish ${t.dish_id}`}</div>
+                      <div className="station">{station?.name ?? "—"}</div>
+                    </div>
+                    <Tag intent={STATUS_INTENT[t.status]} minimal={t.status === "pending"}>
+                      {t.status.replace("_", " ")}
+                    </Tag>
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
+        );
+      })}
+    </>
   );
 }

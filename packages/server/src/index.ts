@@ -14,7 +14,7 @@ app.use((req, _res, next) => { console.log(req.method, req.url); next(); });
 app.use((_req, res, next) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,PATCH,OPTIONS");
   if (_req.method === "OPTIONS") return res.sendStatus(204);
   next();
 });
