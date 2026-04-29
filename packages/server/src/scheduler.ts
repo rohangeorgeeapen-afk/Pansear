@@ -60,7 +60,9 @@ export function schedule(input: SchedulerInput): StationQueue[] {
       if (a.placed_at_ms !== b.placed_at_ms) return a.placed_at_ms - b.placed_at_ms;
       return a.task.id - b.task.id;
     });
-    const slots = Math.max(0, s.capacity - inProg.length);
+    const slots = s.unlimited
+      ? pending.length
+      : Math.max(0, s.capacity - inProg.length);
     const cook_next: CookNextItem[] = pending.slice(0, slots).map(p => ({
       task_id: p.task.id,
       slack_minutes: p.slack,

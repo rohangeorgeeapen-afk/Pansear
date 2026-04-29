@@ -6,9 +6,9 @@ const NOW = new Date("2026-04-25T12:00:00Z");
 const minsFromNow = (m: number) => new Date(NOW.getTime() + m * 60_000).toISOString();
 
 const stations: Station[] = [
-  { id: 1, name: "Grill", capacity: 2 },
-  { id: 2, name: "Fryer", capacity: 2 },
-  { id: 3, name: "Cold",  capacity: 1 },
+  { id: 1, name: "Grill", capacity: 2, unlimited: false },
+  { id: 2, name: "Fryer", capacity: 2, unlimited: false },
+  { id: 3, name: "Cold",  capacity: 1, unlimited: false },
 ];
 
 const dishes: Dish[] = [
@@ -181,6 +181,24 @@ describe("schedule()", () => {
     const grill = findQ(out, 1);
     expect(grill.cook_next.map(c => c.task_id)).toEqual([902]);
     expect(grill.in_progress).toEqual([]);
+  });
+
+  it("unlimited stations promote every pending task regardless of capacity", () => {
+    const out = schedule(baseInput({
+      stations: [
+        { id: 1, name: "Grill", capacity: 2, unlimited: false },
+        { id: 3, name: "Cold",  capacity: 1, unlimited: true },
+      ],
+      orders: [mkOrder(1, 0, 30), mkOrder(2, 0, 25), mkOrder(3, 0, 20)],
+      tasks: [
+        mkTask(800, 1, 14), // salad on cold
+        mkTask(801, 2, 14),
+        mkTask(802, 3, 14),
+      ],
+    }));
+    const cold = findQ(out, 3);
+    expect(cold.cook_next).toHaveLength(3);
+    expect(cold.pending_count).toBe(3);
   });
 
   it("pending_count reflects all pending tasks at a station, not just shown ones", () => {

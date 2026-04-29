@@ -18,7 +18,6 @@ export function StationView() {
   const [meta, setMeta] = useState<{ stations: Station[]; dishes: Dish[] } | null>(null);
   const [capacityDraft, setCapacityDraft] = useState<number | null>(null);
   const [savingCapacity, setSavingCapacity] = useState(false);
-  const [showCapacityEditor, setShowCapacityEditor] = useState(false);
 
   useEffect(() => { fetchMeta().then(setMeta).catch(console.error); }, []);
 
@@ -38,7 +37,6 @@ export function StationView() {
       const updated = await updateStationCapacity(station.id, currentCapacityDraft);
       setMeta(m => m ? { ...m, stations: m.stations.map(s => s.id === updated.id ? { ...s, capacity: updated.capacity } : s) } : m);
       setCapacityDraft(null);
-      setShowCapacityEditor(false);
     } finally {
       setSavingCapacity(false);
     }
@@ -61,24 +59,31 @@ export function StationView() {
   const nextMeta = next ? taskMeta(next.task_id) : null;
   const nextCls = next ? slackClass(next.slack_minutes) : "";
 
+  const verb = station.unlimited ? "PLATE & SEND" : "START COOKING";
+  const nextLabel = station.unlimited ? "▶ Plate this next" : "▶ Cook this next";
+  const inProgLabel = station.unlimited ? "Being plated" : "On the burners";
+
   return (
     <>
       <header className="pan-page-header">
         <div>
           <h1 className="pan-page-title">{station.name} Station</h1>
-          <span className="pan-page-sub">Capacity {station.capacity} &middot; {inProgress} cooking &middot; {pendingTotal} pending</span>
+          <span className="pan-page-sub">
+            {station.unlimited ? "No capacity limit" : `Capacity ${station.capacity}`} &middot; {inProgress} {station.unlimited ? "in hand" : "cooking"} &middot; {pendingTotal} pending
+          </span>
         </div>
-        <button
-          className="pan-link-btn"
-          onClick={() => setShowCapacityEditor(s => !s)}
-        >
-          {showCapacityEditor ? "Hide capacity editor" : "Adjust capacity"}
-        </button>
       </header>
 
-      {showCapacityEditor && (
+      {station.unlimited ? (
         <div className="pan-capacity-bar">
-          <span style={{ fontWeight: "bold" }}>Capacity:</span>
+          <b>Capacity:</b>
+          <span style={{ fontStyle: "italic", color: "var(--pan-fg-muted)" }}>
+            {station.name} pulls pre-prepped items &mdash; no capacity limit applies.
+          </span>
+        </div>
+      ) : (
+        <div className="pan-capacity-bar">
+          <b>Capacity:</b>
           <NumericInput
             min={1}
             max={20}
@@ -87,7 +92,7 @@ export function StationView() {
             style={{ width: 70 }}
           />
           <Button intent="primary" text="Save" disabled={!capacityDirty || savingCapacity} loading={savingCapacity} onClick={saveCapacity} />
-          {capacityDirty && <Button minimal text="Cancel" onClick={() => setCapacityDraft(null)} disabled={savingCapacity} />}
+          {capacityDirty && <Button text="Cancel" onClick={() => setCapacityDraft(null)} disabled={savingCapacity} />}
           <span style={{ marginLeft: "auto", fontSize: 10, color: "var(--pan-fg-muted)", fontStyle: "italic" }}>
             Lowering below current cooking count blocks new starts until the line drains.
           </span>
@@ -97,7 +102,7 @@ export function StationView() {
       {/* HERO — the one thing the chef should look at */}
       {next && nextMeta ? (
         <div className={"pan-hero " + nextCls}>
-          <div className="pan-hero-label">▶ Cook this next</div>
+          <div className="pan-hero-label">{nextLabel}</div>
           <div className="pan-hero-dish">{nextMeta.dish_name}</div>
           <div className="pan-hero-meta">
             <span>Order #{String(nextMeta.order_id).padStart(4, "0")}</span>
@@ -107,7 +112,7 @@ export function StationView() {
             <span>slack <b className={"pan-slack " + nextCls}>{next.slack_minutes.toFixed(1)}m</b></span>
           </div>
           <button className="pan-hero-btn" onClick={() => startTask(next.task_id)}>
-            ▶ START COOKING
+            ▶ {verb}
           </button>
         </div>
       ) : pendingTotal > 0 ? (
@@ -128,7 +133,7 @@ export function StationView() {
       {/* In progress strip — chef ends items here */}
       {inProgress > 0 && (
         <div className="pan-strip">
-          <div className="pan-strip-title">On the burners ({inProgress})</div>
+          <div className="pan-strip-title">{inProgLabel} ({inProgress})</div>
           <div className="pan-strip-rows">
             {queue.in_progress.map(taskId => {
               const m = taskMeta(taskId);

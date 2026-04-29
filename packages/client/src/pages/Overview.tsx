@@ -69,7 +69,9 @@ export function Overview() {
           <Link key={t.station.id} to={`/station/${t.station.id}`} className={`pan-tile ${t.stationCls}`}>
             <div className="pan-tile-head">
               <span className="pan-tile-name">{t.station.name}</span>
-              <span className="pan-tile-cap">{t.inProgress}/{t.station.capacity}</span>
+              <span className="pan-tile-cap">
+                {t.station.unlimited ? `${t.inProgress} in hand` : `${t.inProgress}/${t.station.capacity}`}
+              </span>
             </div>
             <div className="pan-tile-body">
               <div className={`pan-tile-stat ${t.stationCls === "is-late" ? "is-late" : ""}`}>
@@ -78,11 +80,11 @@ export function Overview() {
               </div>
               <div className="pan-tile-stat">
                 <div className="num">{t.inProgress}</div>
-                <div className="lbl">Cooking</div>
+                <div className="lbl">{t.station.unlimited ? "In hand" : "Cooking"}</div>
               </div>
               <div className="pan-tile-stat">
-                <div className="num">{t.station.capacity}</div>
-                <div className="lbl">Capacity</div>
+                <div className="num">{t.station.unlimited ? "—" : t.station.capacity}</div>
+                <div className="lbl">{t.station.unlimited ? "No limit" : "Capacity"}</div>
               </div>
             </div>
             {t.next && t.nextDish ? (

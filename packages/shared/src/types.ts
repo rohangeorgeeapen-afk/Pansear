@@ -4,6 +4,7 @@ export interface Station {
   id: number;
   name: string;
   capacity: number;
+  unlimited: boolean;
 }
 
 export interface Dish {

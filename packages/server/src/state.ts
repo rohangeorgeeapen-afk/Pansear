@@ -5,7 +5,7 @@ import type {
 } from "@restaurant/shared";
 
 export async function loadStations(): Promise<Station[]> {
-  const r = await pool.query<Station>("SELECT id, name, capacity FROM stations ORDER BY id");
+  const r = await pool.query<Station>("SELECT id, name, capacity, unlimited FROM stations ORDER BY id");
   return r.rows;
 }
 
